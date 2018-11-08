@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN 2.0//EN"
+        "http://www.springframework.org/dtd/spring-beans-2.0.dtd">
+<beans>
+
+	<bean id="urlTrim" class="cn.bjxczy.mdsoss.cloudetl.PrefixTrimIndexGenerator">
+	</bean>
+	<bean id="phoneNumTrim" class="cn.bjxczy.mdsoss.cloudetl.PrefixTrimIndexGenerator">
+		<property name="prefixPattern" value="+86"/>
+	</bean>
+	<bean id="staticPortFlag" class="cn.bjxczy.mdsoss.cloudetl.StaticPortIndexGenerator">
+		<property name="flag" value="#"/>
+	</bean>
+	<bean id="indexKeyMap" class="java.util.concurrent.ConcurrentHashMap">
+		<constructor-arg>
+			<map>
+				<entry key="M" value-ref="phoneNumTrim"></entry>
+				<entry key="U" value-ref="urlTrim"></entry>
+				<entry key="S" value-ref="staticPortFlag"></entry>
+			</map>
+		</constructor-arg>
+	</bean>
+	
+	<bean id="ETLconfig" class="cn.bjxczy.mdsoss.cloudetl.EtlParam">
+		<property name="table_name" value="'YDZT:FDR'yyMMdd"/><!-- 创建的数据库表名 -->
+		<property name="family_name" value="content"/><!-- #列族名 -->
+		<property name="column_mode" value="0"/><!-- #列方式 0：不分拆列  1：拆分列 -->
+		<property name="auto_flush" value="false"/><!-- htable的属性，是否自动提交，默认为自动 -->
+		<property name="write_to_wal" value="true"/><!-- htable的属性,是否写入日志 -->
+		<property name="write_buffer" value="25165824" /><!-- #htable的属性，如果autoFlush为true此属性设置就无用，默认为2m -->
+		<property name="commit_num" value="2000"/><!-- htable每次提交的数据量 -->
+		<property name="maxVersions" value="1000000"/><!-- 每次取得的最大版本数 -->
+		<property name="compression" value="NONE"/><!-- 压缩方式   LZO;GZ;NONE -->
+		<property name="rowKey" value="M0"/><!-- 主键列  MSISDN -->
+		<property name="starttimeIndex" value="5"/><!-- 时间列 -->
+		
+		<property name="keyTimeSubstr" value="8-18"/><!-- 主键部分时间部分取值 -->
+		<property name="timeFormat" value="yyyy-MM-dd HH:mm:ss"/><!-- 时间格式 -->
+		<property name="index" value=""/><!-- 第二索引列  F5(SOURCEID):F6(SOURCEPORT)   F9(URL) -->
+		<property name="indexGeneratorMap" ref="indexKeyMap"/><!-- 索引列处理方式 -->
+		<property name="index_mode" value="2"/><!-- #index mode  , diferent mode for index table and family qualifier
+#      1: default, create multiple tables for each index , name as FDR120630_IDX_F12, the family qualifier is same as  data table
+#      2:All index in one INDEX table ,name as FDR120630_IDX,use column name as family qualifier -->
+		<property name="statFields" value="0|SUM|FLOW"/><!-- [汇总列 列编号|汇总方法(目前仅支持SUM)|输出名称]* -->
+	</bean>
+
+
+
+	<bean id="dao" class="cn.bjxczy.mdsoss.cloud.accesshbase.HBaseDAO" scope="singleton">
+	</bean>
+
+	<bean id="dataQueue" class="java.util.concurrent.LinkedBlockingQueue" scope="singleton">
+		<!-- the capacity of this queue -->
+		<constructor-arg type="int">  
+			<value>10000</value>  
+		</constructor-arg>  
+	</bean>
+
+	<!-- reader file -->
+	<bean id="reader" class="cn.bjxczy.mdsoss.cloudetl.HbaseETLReader" scope="prototype">
+		<property name="scanFilePath" value="D:/fdr" />
+		<property name="cutToPath" value="D:/bak" />
+		<property name="errorFilePath" value="D:/bak" />
+		<property name="prefix" value="20" />
+		<property name="suffix" value="" />
+		<property name="loop" value="false" />
+		<property name="charset" value="UTF-8" />
+		<property name="dataQueue" ref="dataQueue" />
+		<property name="config" ref="ETLconfig" />
+		<property name="split" value="," />
+		<property name="threadNum" value="2" />
+		<property name="ignoreLF" value="true" />
+		
+	</bean>
+	
+	<!-- write to database -->
+	<bean id="writer" class="cn.bjxczy.mdsoss.cloudetl.HbaseEtlWriter" scope="prototype">
+		<property name="config" ref="ETLconfig" />
+		<property name="dataQueue" ref="dataQueue" />
+		<property name="hbaseDao" ref="dao" />
+	</bean>
+
+</beans>
