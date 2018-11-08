@@ -3,7 +3,7 @@
         "http://www.springframework.org/dtd/spring-beans-2.0.dtd">
 <beans>
 
-	<bean id="test20181108" class="cn.bjxczy.mdsoss.cloudetl.PrefixTrimIndexGenerator">
+	<bean id="test201811081226" class="cn.bjxczy.mdsoss.cloudetl.PrefixTrimIndexGenerator">
 	</bean>
 	
 
